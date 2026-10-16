@@ -1,0 +1,662 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cam2Puzzle | Turn Anything into a Jigsaw</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #f3e8ff, #e0f2fe);
+    color: #20213a;
+    min-height: 100vh;
+}
+
+header {
+    text-align: center;
+    padding: 25px 15px 12px;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 2.3rem;
+    color: #6d28d9;
+}
+
+header p {
+    color: #555574;
+}
+
+main {
+    width: min(1100px, 94%);
+    margin: 20px auto 40px;
+}
+
+.layout {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px;
+}
+
+.panel {
+    background: white;
+    padding: 22px;
+    border-radius: 20px;
+    box-shadow: 0 8px 25px #4338ca14;
+}
+
+h2 {
+    margin-top: 0;
+    color: #5b21b6;
+}
+
+video {
+    width: 100%;
+    display: block;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    background: #181827;
+    border-radius: 14px;
+    transform: scaleX(-1);
+}
+
+button, .upload-label {
+    display: inline-block;
+    border: 0;
+    border-radius: 10px;
+    padding: 11px 14px;
+    margin: 6px 3px 6px 0;
+    font-weight: bold;
+    cursor: pointer;
+    background: #6d28d9;
+    color: white;
+}
+
+button:hover, .upload-label:hover {
+    background: #4c1d95;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.secondary {
+    background: #e9d5ff;
+    color: #4c1d95;
+}
+
+.secondary:hover {
+    background: #d8b4fe;
+}
+
+#message {
+    min-height: 24px;
+    line-height: 1.5;
+    color: #5b21b6;
+    font-weight: bold;
+    margin: 10px 0;
+}
+
+#puzzle {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    width: 100%;
+    max-width: 440px;
+    margin: 15px auto;
+    padding: 5px;
+    border-radius: 12px;
+    background: #ddd6fe;
+    touch-action: pan-y;
+}
+
+.tile {
+    aspect-ratio: 1;
+    min-width: 0;
+    border: 2px solid white;
+    border-radius: 5px;
+    background-repeat: no-repeat;
+    cursor: grab;
+    touch-action: manipulation;
+}
+
+.tile:active {
+    cursor: grabbing;
+}
+
+.tile:focus-visible {
+    outline: 3px solid #111827;
+    outline-offset: 2px;
+}
+
+.tile.selected {
+    outline: 4px solid #f59e0b;
+    outline-offset: -4px;
+}
+
+#status {
+    text-align: center;
+    font-weight: bold;
+    min-height: 25px;
+}
+
+#upload {
+    display: none;
+}
+
+.small {
+    font-size: 0.9rem;
+    color: #666681;
+    line-height: 1.5;
+}
+
+footer {
+    text-align: center;
+    padding: 15px;
+    color: #666681;
+}
+
+@media (max-width: 720px) {
+    .layout {
+        grid-template-columns: 1fr;
+    }
+
+    header h1 {
+        font-size: 1.8rem;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>🧩 Cam2Puzzle</h1>
+    <p>Turn anything you see into a puzzle you can solve!</p>
+</header>
+
+<main>
+<div class="layout">
+
+    <section class="panel">
+        <h2>📸 Capture Your Object</h2>
+
+        <video id="video" autoplay playsinline muted></video>
+
+        <div>
+            <button id="cameraBtn">Start Camera</button>
+            <button id="captureBtn" disabled>Capture Photo</button>
+            <button id="stopBtn" class="secondary" disabled>
+                Stop Camera
+            </button>
+        </div>
+
+        <p class="small">
+            Hold an object in front of your laptop camera.
+            Keep it still and make sure the area is well lit.
+        </p>
+
+        <hr>
+
+        <p><b>Or choose an existing photo:</b></p>
+        <label for="upload" class="upload-label">
+            Upload Image
+        </label>
+        <input type="file" id="upload" accept="image/*">
+
+        <div>
+            <button id="retakeBtn" class="secondary" disabled>
+                Retake / Clear
+            </button>
+        </div>
+
+        <canvas id="source" hidden></canvas>
+    </section>
+
+    <section class="panel">
+        <h2>🎮 Solve Your Puzzle</h2>
+
+        <p class="small">
+            Drag one tile onto another to swap them.
+            You can also select two tiles by clicking or tapping them.
+            Arrange all nine tiles to rebuild your photo!
+        </p>
+
+        <div id="puzzle" aria-label="Three by three puzzle board"></div>
+
+        <div id="status" aria-live="polite">
+            Capture or upload a photo to begin.
+        </div>
+
+        <div style="text-align:center">
+            <button id="shuffleBtn" disabled>🔀 Shuffle Puzzle</button>
+            <button id="hintBtn" class="secondary" disabled>
+                👀 Show Original
+            </button>
+            <button id="restartBtn" class="secondary" disabled>
+                ↻ New Photo
+            </button>
+        </div>
+
+        <p id="message" aria-live="polite"></p>
+    </section>
+
+</div>
+</main>
+
+<footer>
+    Cam2Puzzle · Built with HTML, CSS and JavaScript
+</footer>
+
+<script>
+const video = document.getElementById("video");
+const canvas = document.getElementById("source");
+const ctx = canvas.getContext("2d");
+const puzzle = document.getElementById("puzzle");
+const message = document.getElementById("message");
+const status = document.getElementById("status");
+
+const cameraBtn = document.getElementById("cameraBtn");
+const captureBtn = document.getElementById("captureBtn");
+const stopBtn = document.getElementById("stopBtn");
+const upload = document.getElementById("upload");
+const retakeBtn = document.getElementById("retakeBtn");
+const shuffleBtn = document.getElementById("shuffleBtn");
+const hintBtn = document.getElementById("hintBtn");
+const restartBtn = document.getElementById("restartBtn");
+
+const SIZE = 3;
+const TOTAL = SIZE * SIZE;
+
+let stream = null;
+let imageReady = false;
+let selectedTile = null;
+let draggedTile = null;
+let order = [];
+let originalPhoto = null;
+let hintVisible = false;
+
+function setStatus(text) {
+    status.textContent = text;
+}
+
+function updateButtons() {
+    captureBtn.disabled = !stream;
+    stopBtn.disabled = !stream;
+    retakeBtn.disabled = !imageReady;
+    shuffleBtn.disabled = !imageReady;
+    hintBtn.disabled = !imageReady;
+    restartBtn.disabled = !imageReady;
+}
+
+async function startCamera() {
+    if (!navigator.mediaDevices ||
+        !navigator.mediaDevices.getUserMedia) {
+        setStatus("Camera unavailable. Use HTTPS, localhost, or upload a photo.");
+        return;
+    }
+
+    try {
+        stopCamera();
+
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: "user",
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            },
+            audio: false
+        });
+
+        video.srcObject = stream;
+        await video.play();
+
+        cameraBtn.textContent = "Camera Started";
+        setStatus("Camera ready! Hold an object and capture it.");
+        updateButtons();
+
+    } catch (error) {
+        stream = null;
+        updateButtons();
+
+        if (error.name === "NotAllowedError") {
+            setStatus("Camera permission denied. Allow camera access in your browser.");
+        } else if (error.name === "NotFoundError") {
+            setStatus("No camera detected. Please upload a photo instead.");
+        } else {
+            setStatus("Could not start camera. Try again or upload a photo.");
+        }
+    }
+}
+
+function stopCamera() {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+    }
+
+    stream = null;
+    video.srcObject = null;
+    cameraBtn.textContent = "Start Camera";
+    updateButtons();
+}
+
+function capturePhoto() {
+    if (!stream || !video.videoWidth) {
+        setStatus("Start the camera before capturing a photo.");
+        return;
+    }
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    // The preview is mirrored, but the saved photo is not.
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    originalPhoto = canvas.toDataURL("image/jpeg", 0.92);
+    createPuzzle(originalPhoto);
+}
+
+upload.addEventListener("change", event => {
+    const file = event.target.files[0];
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+        setStatus("Please select a valid image file.");
+        return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+        const img = new Image();
+
+        img.onload = () => {
+            const maxSide = 1200;
+            const scale = Math.min(
+                1,
+                maxSide / Math.max(img.naturalWidth, img.naturalHeight)
+            );
+
+            canvas.width = Math.round(img.naturalWidth * scale);
+            canvas.height = Math.round(img.naturalHeight * scale);
+
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+            originalPhoto = canvas.toDataURL("image/jpeg", 0.92);
+            createPuzzle(originalPhoto);
+        };
+
+        img.onerror = () => {
+            setStatus("This image could not be opened. Try another photo.");
+        };
+
+        img.src = reader.result;
+    };
+
+    reader.readAsDataURL(file);
+});
+
+function createPuzzle(photo) {
+    const img = new Image();
+
+    img.onload = () => {
+        // Create a square canvas. The full photo is fitted inside it.
+        const side = Math.min(
+            900,
+            Math.max(img.naturalWidth, img.naturalHeight)
+        );
+
+        canvas.width = side;
+        canvas.height = side;
+
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, side, side);
+
+        const scale = Math.min(
+            side / img.naturalWidth,
+            side / img.naturalHeight
+        );
+
+        const width = img.naturalWidth * scale;
+        const height = img.naturalHeight * scale;
+
+        ctx.drawImage(
+            img,
+            (side - width) / 2,
+            (side - height) / 2,
+            width,
+            height
+        );
+
+        originalPhoto = canvas.toDataURL("image/jpeg", 0.92);
+        imageReady = true;
+        hintVisible = false;
+        selectedTile = null;
+
+        shufflePuzzle();
+        updateButtons();
+        setStatus("Puzzle ready! Arrange the nine tiles.");
+        message.textContent = "Let's solve your photo!";
+    };
+
+    img.onerror = () => {
+        setStatus("Could not process this image. Please try another.");
+    };
+
+    img.src = photo;
+}
+
+function shufflePuzzle() {
+    if (!imageReady) return;
+
+    // Start with the correct arrangement.
+    order = Array.from({ length: TOTAL }, (_, i) => i);
+
+    // Fisher-Yates shuffle. Repeat if it accidentally stays solved.
+    do {
+        for (let i = order.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [order[i], order[j]] = [order[j], order[i]];
+        }
+    } while (order.every((value, i) => value === i));
+
+    selectedTile = null;
+    hintVisible = false;
+    renderPuzzle();
+
+    message.textContent = "";
+    setStatus("Puzzle shuffled. Drag or select two tiles to swap them.");
+}
+
+function renderPuzzle() {
+    puzzle.replaceChildren();
+
+    order.forEach((originalIndex, position) => {
+        const tile = document.createElement("div");
+
+        tile.className = "tile";
+        tile.draggable = true;
+        tile.tabIndex = 0;
+        tile.setAttribute(
+            "aria-label",
+            "Tile " + (position + 1) +
+            ". Click or tap to select and swap."
+        );
+
+        const row = Math.floor(originalIndex / SIZE);
+        const col = originalIndex % SIZE;
+
+        tile.style.backgroundImage = `url("${originalPhoto}")`;
+        tile.style.backgroundSize = "300% 300%";
+        tile.style.backgroundPosition =
+            `${col * 50}% ${row * 50}%`;
+
+        tile.dataset.position = position;
+
+        tile.addEventListener("dragstart", event => {
+            draggedTile = Number(tile.dataset.position);
+            event.dataTransfer.setData("text/plain", String(draggedTile));
+            event.dataTransfer.effectAllowed = "move";
+        });
+
+        tile.addEventListener("dragover", event => {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+        });
+
+        tile.addEventListener("drop", event => {
+            event.preventDefault();
+
+            const from = Number(
+                event.dataTransfer.getData("text/plain")
+            );
+
+            const to = Number(tile.dataset.position);
+
+            swapTiles(from, to);
+        });
+
+        tile.addEventListener("dragend", () => {
+            draggedTile = null;
+        });
+
+        tile.addEventListener("click", () => {
+            selectTile(Number(tile.dataset.position));
+        });
+
+        tile.addEventListener("keydown", event => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                selectTile(Number(tile.dataset.position));
+            }
+        });
+
+        if (selectedTile === position) {
+            tile.classList.add("selected");
+        }
+
+        puzzle.appendChild(tile);
+    });
+
+    if (hintVisible) {
+        puzzle.style.backgroundImage = `url("${originalPhoto}")`;
+        puzzle.style.backgroundSize = "cover";
+    } else {
+        puzzle.style.backgroundImage = "none";
+    }
+}
+
+function selectTile(position) {
+    if (hintVisible) return;
+
+    if (selectedTile === null) {
+        selectedTile = position;
+        renderPuzzle();
+        setStatus("First tile selected. Now select another tile.");
+        return;
+    }
+
+    if (selectedTile === position) {
+        selectedTile = null;
+        renderPuzzle();
+        setStatus("Selection cleared.");
+        return;
+    }
+
+    swapTiles(selectedTile, position);
+}
+
+function swapTiles(from, to) {
+    if (
+        from === null ||
+        to === null ||
+        !Number.isInteger(from) ||
+        !Number.isInteger(to) ||
+        from < 0 || from >= TOTAL ||
+        to < 0 || to >= TOTAL ||
+        from === to
+    ) {
+        selectedTile = null;
+        renderPuzzle();
+        return;
+    }
+
+    [order[from], order[to]] = [order[to], order[from]];
+
+    selectedTile = null;
+    hintVisible = false;
+    renderPuzzle();
+    checkCompletion();
+}
+
+function checkCompletion() {
+    const solved = order.every((value, index) => value === index);
+
+    if (solved) {
+        setStatus("🎉 Congratulations! You solved your puzzle!");
+        message.textContent = "Amazing! You rebuilt your own photo!";
+    } else {
+        setStatus("Keep going! Some tiles are still in the wrong place.");
+        message.textContent = "";
+    }
+}
+
+function showHint() {
+    if (!imageReady) return;
+
+    hintVisible = !hintVisible;
+
+    hintBtn.textContent = hintVisible
+        ? "Hide Original"
+        : "👀 Show Original";
+
+    renderPuzzle();
+
+    setStatus(
+        hintVisible
+            ? "Reference image enabled. Hide it to continue."
+            : "Reference image hidden. Continue solving!"
+    );
+}
+
+function clearPuzzle() {
+    imageReady = false;
+    originalPhoto = null;
+    selectedTile = null;
+    order = [];
+    hintVisible = false;
+
+    puzzle.replaceChildren();
+    puzzle.style.backgroundImage = "none";
+    message.textContent = "";
+    upload.value = "";
+
+    setStatus("Capture or upload a new photo to begin.");
+    hintBtn.textContent = "👀 Show Original";
+    updateButtons();
+}
+
+cameraBtn.addEventListener("click", startCamera);
+captureBtn.addEventListener("click", capturePhoto);
+stopBtn.addEventListener("click", stopCamera);
+shuffleBtn.addEventListener("click", shufflePuzzle);
+hintBtn.addEventListener("click", showHint);
+restartBtn.addEventListener("click", clearPuzzle);
+retakeBtn.addEventListener("click", clearPuzzle);
+
+window.addEventListener("beforeunload", stopCamera);
+
+updateButtons();
+</script>
+
+</body>
+</html>
